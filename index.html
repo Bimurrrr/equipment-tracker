@@ -99,9 +99,15 @@
     border-radius: 20px; font-size: 13px; color: var(--text-dim);
     cursor: pointer; transition: all 0.15s;
   }
-  .preset-chip:hover, .preset-chip.active {
+  .preset-chip.active {
     border-color: var(--accent); color: var(--text);
     background: rgba(59, 130, 246, 0.1);
+  }
+  @media (hover: hover) {
+    .preset-chip:hover:not(.checked-out):not(.active) {
+      border-color: var(--accent); color: var(--text);
+      background: rgba(59, 130, 246, 0.1);
+    }
   }
 
   /* Checked-out equipment: animated rotating red border */
