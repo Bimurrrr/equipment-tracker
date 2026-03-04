@@ -277,6 +277,17 @@
 <div class="tab-content" id="tab-manage">
   <div class="form-card">
     <h2>Equipment hinzufügen</h2>
+    <div class="form-group">
+      <label>Kategorie</label>
+      <select id="newEquipCategory" style="width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;-webkit-appearance:none;">
+        <option value="Kameras">Kameras</option>
+        <option value="Objektive">Objektive</option>
+        <option value="Stative">Stative</option>
+        <option value="Licht">Licht</option>
+        <option value="Audio">Audio</option>
+        <option value="Sonstiges" selected>Sonstiges</option>
+      </select>
+    </div>
     <div class="custom-input-row">
       <input type="text" id="newEquipName" placeholder="z.B. Sony A7IV Body">
       <button class="btn-add-equip" onclick="addEquipment()">+</button>
@@ -558,8 +569,13 @@ function renderManageList() {
 async function addEquipment() {
   const input = document.getElementById('newEquipName');
   const name = input.value.trim();
+  const category = document.getElementById('newEquipCategory').value;
   if (!name) return;
   if (equipmentList.includes(name)) return alert('Gibt es schon');
+
+  // Add to frontend category mapping
+  if (!CATEGORIES[category]) CATEGORIES[category] = [];
+  CATEGORIES[category].push(name);
 
   const { error } = await db.from('equipment').insert({ name });
   if (error) { alert('Fehler: ' + error.message); return; }
