@@ -93,7 +93,7 @@
   .btn-primary:active { transform: scale(0.98); }
   .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
 
-  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
   .preset-chip {
     padding: 6px 12px; background: var(--bg); border: 1px solid var(--border);
     border-radius: 20px; font-size: 13px; color: var(--text-dim);
@@ -102,6 +102,13 @@
   .preset-chip:hover, .preset-chip.active {
     border-color: var(--accent); color: var(--text);
     background: rgba(59, 130, 246, 0.1);
+  }
+
+  .category-section { margin-bottom: 10px; }
+  .category-label {
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-bottom: 6px; margin-top: 8px;
+    padding-left: 2px; font-weight: 600;
   }
 
   .section-title {
@@ -286,6 +293,17 @@ const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+// Kategorien-Mapping (Frontend-seitig)
+const CATEGORIES = {
+  'Kameras': ['Sony A7IV Body', 'Sony A7III Body', 'Canon R5 Body'],
+  'Objektive': ['Sigma 24-70mm f/2.8', 'Sony 70-200mm f/2.8', 'Sony 50mm f/1.4'],
+  'Stative': ['Stativ Manfrotto', 'Gimbal DJI RS3', 'Slider'],
+  'Licht': ['Aputure 600d', 'Aputure 300d', 'LED Panel', 'Softbox Set', 'Reflektor 5in1'],
+  'Audio': ['Rode NTG5', 'Rode Wireless GO II', 'Zoom H6'],
+  'Sonstiges': ['Monitor Atomos', 'SD Karten Set', 'Akku Set', 'Drohne DJI Mini 4']
+};
+const CATEGORY_ORDER = ['Kameras', 'Objektive', 'Stative', 'Licht', 'Audio', 'Sonstiges'];
+
 let equipmentList = [];
 let checkoutData = [];
 let selectedEquipment = [];
@@ -332,13 +350,39 @@ document.querySelectorAll('.tab').forEach(tab => {
   });
 });
 
-// Render Presets
+// Get category for an equipment item
+function getCategory(name) {
+  for (const [cat, items] of Object.entries(CATEGORIES)) {
+    if (items.includes(name)) return cat;
+  }
+  return 'Sonstiges';
+}
+
+// Render Presets grouped by category
 function renderPresets() {
   const container = document.getElementById('equipPresets');
-  container.innerHTML = equipmentList.map(e =>
-    `<div class="preset-chip ${selectedEquipment.includes(e) ? 'active' : ''}"
-          onclick="toggleEquip('${e.replace(/'/g, "\\'")}')">${e}</div>`
-  ).join('');
+  const grouped = {};
+  CATEGORY_ORDER.forEach(cat => grouped[cat] = []);
+
+  equipmentList.forEach(name => {
+    const cat = getCategory(name);
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(name);
+  });
+
+  container.innerHTML = CATEGORY_ORDER
+    .filter(cat => grouped[cat] && grouped[cat].length > 0)
+    .map(cat => `
+      <div class="category-section">
+        <div class="category-label">${cat}</div>
+        <div class="presets">
+          ${grouped[cat].map(e =>
+            `<div class="preset-chip ${selectedEquipment.includes(e) ? 'active' : ''}"
+                  onclick="toggleEquip('${e.replace(/'/g, "\\'")}')">${e}</div>`
+          ).join('')}
+        </div>
+      </div>
+    `).join('');
 }
 
 function toggleEquip(name) {
@@ -489,12 +533,26 @@ function renderStats() {
 
 function renderManageList() {
   const el = document.getElementById('equipManageList');
-  el.innerHTML = equipmentList.map(e =>
-    `<div class="equip-list-item">
-      <span>${e}</span>
-      <button class="equip-remove" onclick="removeEquipment('${e.replace(/'/g, "\\'")}')">✕</button>
-    </div>`
-  ).join('');
+  const grouped = {};
+  CATEGORY_ORDER.forEach(cat => grouped[cat] = []);
+
+  equipmentList.forEach(name => {
+    const cat = getCategory(name);
+    if (!grouped[cat]) grouped[cat] = [];
+    grouped[cat].push(name);
+  });
+
+  el.innerHTML = CATEGORY_ORDER
+    .filter(cat => grouped[cat] && grouped[cat].length > 0)
+    .map(cat => `
+      <div class="category-label" style="margin-top:14px;margin-bottom:8px">${cat}</div>
+      ${grouped[cat].map(e =>
+        `<div class="equip-list-item">
+          <span>${e}</span>
+          <button class="equip-remove" onclick="removeEquipment('${e.replace(/'/g, "\\'")}')">✕</button>
+        </div>`
+      ).join('')}
+    `).join('');
 }
 
 async function addEquipment() {
