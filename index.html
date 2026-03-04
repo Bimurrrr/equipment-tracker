@@ -432,7 +432,8 @@ function renderPresets() {
             const isOut = checkedOut.has(e);
             const isSelected = selectedEquipment.includes(e);
             const cls = isSelected ? 'active' : isOut ? 'checked-out' : '';
-            return `<div class="preset-chip ${cls}"
+            const animStyle = isOut ? ` style="animation-delay:-${Date.now() % 2000}ms"` : '';
+            return `<div class="preset-chip ${cls}"${animStyle}
                   onclick="toggleEquip('${e.replace(/'/g, "\\'")}', this)">${e}</div>`;
           }).join('')}
         </div>
