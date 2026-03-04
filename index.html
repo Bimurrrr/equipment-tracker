@@ -112,6 +112,8 @@
     color: var(--red);
     overflow: hidden;
     z-index: 0;
+    pointer-events: none;
+    opacity: 0.6;
   }
   .preset-chip.checked-out::before {
     content: '';
@@ -446,6 +448,10 @@ function renderPresets() {
 }
 
 function toggleEquip(name) {
+  // Don't allow selecting checked-out items
+  const checkedOut = getCheckedOutNames();
+  if (checkedOut.has(name)) return;
+
   const idx = selectedEquipment.indexOf(name);
   if (idx === -1) selectedEquipment.push(name);
   else selectedEquipment.splice(idx, 1);
