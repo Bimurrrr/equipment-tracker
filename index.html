@@ -306,6 +306,10 @@
   <div class="form-card">
     <h2>Equipment hinzufügen</h2>
     <div class="form-group">
+      <label>Name</label>
+      <input type="text" id="newEquipName" placeholder="z.B. Sony A7IV Body">
+    </div>
+    <div class="form-group">
       <label>Kategorie</label>
       <select id="newEquipCategory" style="width:100%;padding:12px 14px;background:var(--bg);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:16px;-webkit-appearance:none;">
         <option value="Kameras">Kameras</option>
@@ -316,10 +320,7 @@
         <option value="Sonstiges" selected>Sonstiges</option>
       </select>
     </div>
-    <div class="custom-input-row">
-      <input type="text" id="newEquipName" placeholder="z.B. Sony A7IV Body">
-      <button class="btn-add-equip" onclick="addEquipment()">+</button>
-    </div>
+    <button class="btn btn-primary" onclick="addEquipment()">Hinzufügen</button>
   </div>
   <div class="section-title">Alle Geräte</div>
   <div id="equipManageList"></div>
