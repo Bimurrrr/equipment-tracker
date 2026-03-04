@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Office Equipment Tracker</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  :root {
+    --bg: #0a0a0a;
+    --card: #161616;
+    --border: #2a2a2a;
+    --accent: #3b82f6;
+    --accent-hover: #2563eb;
+    --red: #ef4444;
+    --green: #22c55e;
+    --yellow: #eab308;
+    --text: #f5f5f5;
+    --text-dim: #888;
+    --radius: 12px;
+  }
+
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro', system-ui, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100dvh;
+    padding: 16px;
+    padding-bottom: 100px;
+  }
+
+  header { text-align: center; padding: 20px 0 24px; }
+  header h1 { font-size: 22px; font-weight: 700; letter-spacing: -0.5px; }
+  header p { font-size: 13px; color: var(--text-dim); margin-top: 4px; }
+
+  .sync-status {
+    display: inline-block;
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    margin-top: 6px;
+  }
+  .sync-ok { background: rgba(34,197,94,0.15); color: var(--green); }
+  .sync-err { background: rgba(239,68,68,0.15); color: var(--red); }
+  .sync-loading { background: rgba(59,130,246,0.15); color: var(--accent); }
+
+  .stats { display: flex; gap: 10px; margin-bottom: 20px; }
+
+  .stat-card {
+    flex: 1; background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; text-align: center;
+  }
+  .stat-card .num { font-size: 28px; font-weight: 700; }
+  .stat-card .label {
+    font-size: 11px; color: var(--text-dim); text-transform: uppercase;
+    letter-spacing: 0.5px; margin-top: 2px;
+  }
+  .stat-card.out .num { color: var(--yellow); }
+  .stat-card.total .num { color: var(--accent); }
+
+  .form-card {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 18px; margin-bottom: 24px;
+  }
+  .form-card h2 {
+    font-size: 15px; font-weight: 600; margin-bottom: 14px;
+    display: flex; align-items: center; gap: 8px;
+  }
+
+  .form-group { margin-bottom: 12px; }
+  .form-group label {
+    display: block; font-size: 12px; color: var(--text-dim);
+    margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .form-group input, .form-group select {
+    width: 100%; padding: 12px 14px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); font-size: 16px; outline: none; -webkit-appearance: none;
+  }
+  .form-group input:focus { border-color: var(--accent); }
+
+  .form-row { display: flex; gap: 10px; }
+  .form-row .form-group { flex: 1; }
+
+  .btn {
+    width: 100%; padding: 14px; border: none; border-radius: 8px;
+    font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-primary:active { transform: scale(0.98); }
+  .btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .presets { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .preset-chip {
+    padding: 6px 12px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 20px; font-size: 13px; color: var(--text-dim);
+    cursor: pointer; transition: all 0.15s;
+  }
+  .preset-chip:hover, .preset-chip.active {
+    border-color: var(--accent); color: var(--text);
+    background: rgba(59, 130, 246, 0.1);
+  }
+
+  .section-title {
+    font-size: 15px; font-weight: 600; margin-bottom: 12px;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .section-title .count { font-size: 12px; color: var(--text-dim); font-weight: 400; }
+
+  .checkout-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 14px; margin-bottom: 10px;
+  }
+  .checkout-item.overdue { border-color: var(--red); border-left: 3px solid var(--red); }
+
+  .item-header {
+    display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;
+  }
+  .item-name { font-size: 16px; font-weight: 600; }
+
+  .item-badge {
+    font-size: 11px; padding: 3px 8px; border-radius: 20px;
+    font-weight: 600; white-space: nowrap;
+  }
+  .badge-out { background: rgba(234,179,8,0.15); color: var(--yellow); }
+  .badge-overdue { background: rgba(239,68,68,0.15); color: var(--red); }
+
+  .item-details {
+    display: flex; flex-wrap: wrap; gap: 12px; font-size: 13px; color: var(--text-dim);
+  }
+  .item-detail { display: flex; align-items: center; gap: 4px; }
+
+  .equip-tags { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+  .equip-tag {
+    padding: 4px 10px; background: rgba(59,130,246,0.1);
+    border: 1px solid rgba(59,130,246,0.25); border-radius: 16px;
+    font-size: 12px; color: var(--accent); font-weight: 500;
+  }
+
+  .item-actions { display: flex; gap: 8px; margin-top: 12px; }
+  .btn-sm {
+    flex: 1; padding: 10px; border: none; border-radius: 8px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+  .btn-return { background: rgba(34,197,94,0.15); color: var(--green); }
+  .btn-return:hover { background: rgba(34,197,94,0.25); }
+  .btn-delete {
+    background: rgba(239,68,68,0.1); color: var(--red);
+    flex: 0 0 auto; padding: 10px 14px;
+  }
+  .btn-delete:hover { background: rgba(239,68,68,0.2); }
+
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--text-dim); font-size: 14px; }
+  .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+
+  .history-toggle {
+    width: 100%; padding: 12px; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    color: var(--text-dim); font-size: 13px; cursor: pointer;
+    margin-top: 20px; text-align: center;
+  }
+  .history-item {
+    background: var(--card); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 12px 14px; margin-bottom: 8px; opacity: 0.6;
+  }
+  .history-item .equip-tag { opacity: 0.5; }
+  .history-section { margin-top: 12px; }
+
+  .tabs {
+    display: flex; gap: 4px; background: var(--card);
+    border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 4px; margin-bottom: 20px;
+  }
+  .tab {
+    flex: 1; padding: 10px; text-align: center; border-radius: 8px;
+    font-size: 14px; font-weight: 500; cursor: pointer;
+    color: var(--text-dim); background: transparent; border: none;
+  }
+  .tab.active { background: var(--accent); color: white; }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+
+  .custom-input-row { display: flex; gap: 8px; }
+  .custom-input-row input { flex: 1; }
+  .btn-add-equip {
+    padding: 12px 16px; background: var(--accent); color: white;
+    border: none; border-radius: 8px; font-size: 20px; cursor: pointer; line-height: 1;
+  }
+
+  .equip-list-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 10px 14px; background: var(--card); border: 1px solid var(--border);
+    border-radius: 8px; margin-bottom: 6px; font-size: 14px;
+  }
+  .equip-remove {
+    background: none; border: none; color: var(--red);
+    font-size: 18px; cursor: pointer; padding: 4px 8px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Office Equipment Tracker</h1>
+  <p>Kamera-Equipment Verwaltung</p>
+  <div class="sync-status sync-loading" id="syncStatus">Verbinde...</div>
+</header>
+
+<div class="stats">
+  <div class="stat-card out">
+    <div class="num" id="statOut">-</div>
+    <div class="label">Unterwegs</div>
+  </div>
+  <div class="stat-card total">
+    <div class="num" id="statTotal">-</div>
+    <div class="label">Equipment</div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab active" data-tab="checkout">Ausleihen</button>
+  <button class="tab" data-tab="list">Unterwegs</button>
+  <button class="tab" data-tab="manage">Equipment</button>
+</div>
+
+<div class="tab-content active" id="tab-checkout">
+  <div class="form-card">
+    <h2>Equipment ausleihen</h2>
+    <div class="form-group">
+      <label>Equipment</label>
+      <div class="presets" id="equipPresets"></div>
+    </div>
+    <div class="form-group">
+      <label>Wer nimmt es mit?</label>
+      <input type="text" id="person" placeholder="Name eingeben" autocomplete="off">
+    </div>
+    <div class="form-group">
+      <label>Projekt / Dreh</label>
+      <input type="text" id="project" placeholder="z.B. Imagefilm Kunde X" autocomplete="off">
+    </div>
+    <div class="form-row">
+      <div class="form-group">
+        <label>Ausgeliehen am</label>
+        <input type="date" id="dateOut">
+      </div>
+      <div class="form-group">
+        <label>Zurück bis</label>
+        <input type="date" id="dateBack">
+      </div>
+    </div>
+    <button class="btn btn-primary" id="btnCheckout" onclick="checkoutEquipment()">Ausleihen</button>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-list">
+  <div class="section-title">
+    Aktuell unterwegs <span class="count" id="listCount"></span>
+  </div>
+  <div id="checkoutList"></div>
+  <button class="history-toggle" id="historyToggle" onclick="toggleHistory()">Verlauf anzeigen</button>
+  <div class="history-section" id="historySection" style="display:none">
+    <div class="section-title">Zurückgegeben</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<div class="tab-content" id="tab-manage">
+  <div class="form-card">
+    <h2>Equipment hinzufügen</h2>
+    <div class="custom-input-row">
+      <input type="text" id="newEquipName" placeholder="z.B. Sony A7IV Body">
+      <button class="btn-add-equip" onclick="addEquipment()">+</button>
+    </div>
+  </div>
+  <div class="section-title">Alle Geräte</div>
+  <div id="equipManageList"></div>
+</div>
+
+<script>
+// Supabase Init
+const SUPABASE_URL = 'https://ojzoissaowuuwdxbaecw.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9qem9pc3Nhb3d1dXdkeGJhZWN3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI2NTA1NTQsImV4cCI6MjA4ODIyNjU1NH0.qDFYHsHOse9bA-TRwfXlR1nn6WJwjPBi02kCFTqT_rc';
+
+const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+let equipmentList = [];
+let checkoutData = [];
+let selectedEquipment = [];
+
+function setSync(status, msg) {
+  const el = document.getElementById('syncStatus');
+  el.className = 'sync-status sync-' + status;
+  el.textContent = msg;
+}
+
+// Load data from Supabase
+async function loadEquipment() {
+  const { data, error } = await db.from('equipment').select('name').order('name');
+  if (error) { setSync('err', 'Fehler: ' + error.message); return; }
+  equipmentList = data.map(e => e.name);
+}
+
+async function loadCheckouts() {
+  const { data, error } = await db.from('checkouts').select('*').order('created_at', { ascending: false });
+  if (error) { setSync('err', 'Fehler: ' + error.message); return; }
+  checkoutData = data;
+}
+
+async function loadAll() {
+  setSync('loading', 'Lade...');
+  await Promise.all([loadEquipment(), loadCheckouts()]);
+  setSync('ok', 'Synchronisiert');
+  renderAll();
+}
+
+// Realtime subscription
+db.channel('equipment-changes')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'checkouts' }, () => loadAll())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'equipment' }, () => loadAll())
+  .subscribe();
+
+// Tabs
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// Render Presets
+function renderPresets() {
+  const container = document.getElementById('equipPresets');
+  container.innerHTML = equipmentList.map(e =>
+    `<div class="preset-chip ${selectedEquipment.includes(e) ? 'active' : ''}"
+          onclick="toggleEquip('${e.replace(/'/g, "\\'")}')">${e}</div>`
+  ).join('');
+}
+
+function toggleEquip(name) {
+  const idx = selectedEquipment.indexOf(name);
+  if (idx === -1) selectedEquipment.push(name);
+  else selectedEquipment.splice(idx, 1);
+  renderPresets();
+}
+
+// Checkout
+async function checkoutEquipment() {
+  const person = document.getElementById('person').value.trim();
+  const project = document.getElementById('project').value.trim();
+  const dateOut = document.getElementById('dateOut').value;
+  const dateBack = document.getElementById('dateBack').value;
+
+  if (selectedEquipment.length === 0) return alert('Bitte Equipment auswählen');
+  if (!person) return alert('Bitte Name eingeben');
+  if (!dateOut || !dateBack) return alert('Bitte Datum eingeben');
+
+  const btn = document.getElementById('btnCheckout');
+  btn.disabled = true;
+  btn.textContent = 'Speichere...';
+
+  const { error } = await db.from('checkouts').insert({
+    equipment: selectedEquipment,
+    person,
+    project: project || null,
+    date_out: dateOut,
+    date_back: dateBack
+  });
+
+  btn.disabled = false;
+  btn.textContent = 'Ausleihen';
+
+  if (error) { alert('Fehler: ' + error.message); return; }
+
+  selectedEquipment = [];
+  document.getElementById('person').value = '';
+  document.getElementById('project').value = '';
+  await loadAll();
+  document.querySelectorAll('.tab')[1].click();
+}
+
+// Return
+async function returnItem(id) {
+  const { error } = await db.from('checkouts').update({
+    returned: true,
+    returned_date: new Date().toISOString().split('T')[0]
+  }).eq('id', id);
+  if (error) alert('Fehler: ' + error.message);
+  else await loadAll();
+}
+
+// Delete
+async function deleteItem(id) {
+  if (!confirm('Eintrag löschen?')) return;
+  const { error } = await db.from('checkouts').delete().eq('id', id);
+  if (error) alert('Fehler: ' + error.message);
+  else await loadAll();
+}
+
+function fmtDate(d) {
+  if (!d) return '-';
+  const [y, m, day] = d.split('-');
+  return `${day}.${m}.${y}`;
+}
+
+function daysLeft(dateBack) {
+  const today = new Date();
+  today.setHours(0,0,0,0);
+  const back = new Date(dateBack);
+  return Math.ceil((back - today) / (1000 * 60 * 60 * 24));
+}
+
+function renderEquipTags(arr) {
+  return `<div class="equip-tags">${arr.map(e => `<span class="equip-tag">${e}</span>`).join('')}</div>`;
+}
+
+// Render List
+function renderList() {
+  const active = checkoutData.filter(c => !c.returned);
+  const returned = checkoutData.filter(c => c.returned).slice(0, 20);
+
+  document.getElementById('listCount').textContent = `(${active.length})`;
+
+  const listEl = document.getElementById('checkoutList');
+  if (active.length === 0) {
+    listEl.innerHTML = '<div class="empty-state"><div class="icon">✓</div>Alles da — kein Equipment unterwegs</div>';
+  } else {
+    listEl.innerHTML = active.map(item => {
+      const days = daysLeft(item.date_back);
+      const overdue = days < 0;
+      const badgeClass = overdue ? 'badge-overdue' : 'badge-out';
+      const badgeText = overdue ? `${Math.abs(days)}d überfällig` : days === 0 ? 'Heute zurück' : `noch ${days}d`;
+      const count = item.equipment.length;
+
+      return `<div class="checkout-item ${overdue ? 'overdue' : ''}">
+        <div class="item-header">
+          <div class="item-name">${count} Gerät${count > 1 ? 'e' : ''}</div>
+          <span class="item-badge ${badgeClass}">${badgeText}</span>
+        </div>
+        ${renderEquipTags(item.equipment)}
+        <div class="item-details">
+          <span class="item-detail">👤 ${item.person}</span>
+          ${item.project ? `<span class="item-detail">🎬 ${item.project}</span>` : ''}
+          <span class="item-detail">📅 ${fmtDate(item.date_out)} → ${fmtDate(item.date_back)}</span>
+        </div>
+        <div class="item-actions">
+          <button class="btn-sm btn-return" onclick="returnItem(${item.id})">✓ Alles zurück</button>
+          <button class="btn-sm btn-delete" onclick="deleteItem(${item.id})">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+
+  const historyEl = document.getElementById('historyList');
+  historyEl.innerHTML = returned.map(item =>
+    `<div class="history-item">
+      ${renderEquipTags(item.equipment)}
+      <div class="item-details">
+        <span class="item-detail">👤 ${item.person}</span>
+        ${item.project ? `<span class="item-detail">🎬 ${item.project}</span>` : ''}
+        <span class="item-detail">↩ ${fmtDate(item.returned_date)}</span>
+      </div>
+    </div>`
+  ).join('');
+}
+
+function toggleHistory() {
+  const sec = document.getElementById('historySection');
+  const btn = document.getElementById('historyToggle');
+  if (sec.style.display === 'none') {
+    sec.style.display = 'block';
+    btn.textContent = 'Verlauf ausblenden';
+  } else {
+    sec.style.display = 'none';
+    btn.textContent = 'Verlauf anzeigen';
+  }
+}
+
+function renderStats() {
+  const active = checkoutData.filter(c => !c.returned);
+  const activeEquipCount = active.reduce((sum, c) => sum + c.equipment.length, 0);
+  document.getElementById('statOut').textContent = activeEquipCount;
+  document.getElementById('statTotal').textContent = equipmentList.length;
+}
+
+function renderManageList() {
+  const el = document.getElementById('equipManageList');
+  el.innerHTML = equipmentList.map(e =>
+    `<div class="equip-list-item">
+      <span>${e}</span>
+      <button class="equip-remove" onclick="removeEquipment('${e.replace(/'/g, "\\'")}')">✕</button>
+    </div>`
+  ).join('');
+}
+
+async function addEquipment() {
+  const input = document.getElementById('newEquipName');
+  const name = input.value.trim();
+  if (!name) return;
+  if (equipmentList.includes(name)) return alert('Gibt es schon');
+
+  const { error } = await db.from('equipment').insert({ name });
+  if (error) { alert('Fehler: ' + error.message); return; }
+  input.value = '';
+  await loadAll();
+}
+
+async function removeEquipment(name) {
+  if (!confirm(`"${name}" entfernen?`)) return;
+  const { error } = await db.from('equipment').delete().eq('name', name);
+  if (error) alert('Fehler: ' + error.message);
+  else await loadAll();
+}
+
+function renderAll() {
+  renderPresets();
+  renderList();
+  renderStats();
+  renderManageList();
+}
+
+// Default dates
+document.getElementById('dateOut').valueAsDate = new Date();
+const tomorrow = new Date();
+tomorrow.setDate(tomorrow.getDate() + 1);
+document.getElementById('dateBack').valueAsDate = tomorrow;
+
+// Start
+loadAll();
+</script>
+</body>
+</html>
